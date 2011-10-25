@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="Shift_JIS"?>
+<project name="jMemCachedClient" default="jar"  basedir=".">
+	<property name="src.dir" value="src"/>
+	<property name="classes.dir" value="classes"/>
+	<property name="jar.name" value="jMemCachedClient.jar"/>
+	<target name="compile">
+		<mkdir dir="${classes.dir}" />
+		<javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="memcached.classpath" />
+	</target>
+	<target name="jar" depends="compile">
+		<jar jarfile="${jar.name}" basedir="${classes.dir}" manifest="${src.dir}/MANIFEST" />
+	</target>
+	<target name="clean">
+		<delete dir="${classes.dir}" />
+		<delete file="${jar.name}" />
+	</target>
+	<path id="memcached.classpath">
+		<fileset dir="lib">
+			<include name="*.jar" />
+		</fileset>
+	</path>
+</project>
