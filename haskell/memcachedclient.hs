@@ -41,7 +41,7 @@ main = do
             key = (tt !! 1)
           r <- Network.Memcache.get server key
           case r of
-            Nothing -> textBufferInsert buf end ((show key) ++ " not found")
+            Nothing -> textBufferInsert buf end ((show key) ++ " not found\n")
             Just v -> textBufferInsert buf end ((v::String) ++ "\n")
         "set" -> do
           let key = (tt !! 1)
