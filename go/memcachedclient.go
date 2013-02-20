@@ -1,55 +1,66 @@
 package main
 
 import (
-	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
-	"os"
-	"strconv"
-	"unsafe"
+	"github.com/bradfitz/gomemcache/memcache"
+	"strings"
 )
 
 func main() {
-	gtk.Init(&os.Args)
+	mc := memcache.New("127.0.0.1:11211")
 
-	dialog := gtk.NewDialog()
-	dialog.SetTitle("number input")
+	gtk.Init(nil)
 
-	vbox := dialog.GetVBox()
+	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
+	window.SetTitle("memcachedclient")
+	window.Connect("destroy", gtk.MainQuit)
 
-	label := gtk.NewLabel("Numnber:")
-	vbox.Add(label)
+	vbox := gtk.NewVBox(false, 1)
+
+	swin := gtk.NewScrolledWindow(nil, nil)
+	textview := gtk.NewTextView()
+	textview.SetEditable(false)
+	textview.SetCursorVisible(false)
+	textview.ModifyFontEasy("monospace 12")
+	swin.Add(textview)
+	vbox.Add(swin)
+
+	buffer := textview.GetBuffer()
 
 	input := gtk.NewEntry()
 	input.SetEditable(true)
-	vbox.Add(input)
+	vbox.PackEnd(input, false, false, 0)
 
-	input.Connect("insert-text", func(ctx *glib.CallbackContext) {
-		a := (*[2000]uint8)(unsafe.Pointer(ctx.Args(0)))
-		p := (*int)(unsafe.Pointer(ctx.Args(2)))
-		i := 0
-		for a[i] != 0 {
-			i++
-		}
-		s := string(a[0:i])
-		if s == "." {
-			if *p == 0 {
-				input.StopEmission("insert-text")
+	tag := buffer.CreateTag("red", map[string]string{"foreground": "#FF0000"})
+	input.Connect("activate", func() {
+		var iter gtk.TextIter
+		tokens := strings.SplitN(input.GetText(), " ", 3)
+		if len(tokens) == 2 && strings.ToUpper(tokens[0]) == "GET" {
+			if t, err := mc.Get(tokens[1]); err == nil {
+				buffer.GetEndIter(&iter)
+				buffer.Insert(&iter, string(t.Value) + "\n")
+			} else {
+				buffer.InsertWithTag(&iter, err.Error() + "\n", tag)
 			}
-		} else {
-			_, err := strconv.ParseFloat(s, 64)
-			if err != nil {
-				input.StopEmission("insert-text")
+			input.SetText("")
+		} else if len(tokens) == 3 && strings.ToUpper(tokens[0]) == "SET" {
+			if err := mc.Set(
+					&memcache.Item{
+						Key: tokens[1],
+						Value: []byte(tokens[2]),
+					}); err == nil {
+				buffer.GetEndIter(&iter)
+				buffer.InsertWithTag(&iter, "OK\n", tag)
+			} else {
+				buffer.InsertWithTag(&iter, err.Error() + "\n", tag)
 			}
+			input.SetText("")
 		}
 	})
+	input.GrabFocus()
 
-	button := gtk.NewButtonWithLabel("OK")
-	button.Connect("clicked", func() {
-		println(input.GetText())
-		gtk.MainQuit()
-	})
-	vbox.Add(button)
-
-	dialog.ShowAll()
+	window.Add(vbox)
+	window.SetSizeRequest(300, 500)
+	window.ShowAll()
 	gtk.Main()
 }
